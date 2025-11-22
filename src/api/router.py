@@ -6,7 +6,6 @@ import logging
 import asyncio
 
 
-# --- CORRECTED IMPORTS ---
 from src.Db.__init__ import get_db
 from src.Db.models import ConversationMode,MessageRole,ProcessingStatus,User,Conversation,Message,Document,ConvDocumentLink,DocumentChunk
 
@@ -36,15 +35,8 @@ router = APIRouter(
 def get_current_user_id():
     return "user_mock_id_123"
 
-# ----------------------------
-# Pending documents store (user-specific)
-# ----------------------------
-# This structure must be preserved across app instances in a real deployment, 
-# but for this example, we keep it as a simple in-memory dictionary.
-pending_documents_store = {}  # {user_id: [(document_id, upload_time), ...]}
-
 # ----------------------------------------------------
-# 1A. FILE UPLOAD ENDPOINT (Handles the raw file processing) <-- NEW
+# 1A. FILE UPLOAD ENDPOINT 
 # ----------------------------------------------------
 @router.post("/documents", status_code=status.HTTP_201_CREATED, tags=["Documents"])
 async def upload_document(
@@ -52,19 +44,14 @@ async def upload_document(
     user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db)
 ):
-    """
-    Receives a raw file, triggers the RAG processing pipeline, 
-    and returns the resulting document ID.
-    """
+
     if file.filename.split('.')[-1].lower() not in ["pdf"]:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Only PDF files are currently supported.")
     
     try:
-        # This calls the new processor, which saves, extracts, chunks, and embeds the file.
         document_id = await document_processor.process_document_upload(db, user_id, None, file)
 
         
-        # Store temporarily for future conversation (as per your original logic)
         if user_id not in pending_documents_store:
             pending_documents_store[user_id] = []
             
@@ -77,23 +64,18 @@ async def upload_document(
             "filename": file.filename
         }
     except HTTPException as e:
-        # Re-raise explicit HTTP exceptions
         raise e
     except Exception as e:
         logger.error(f"Uncaught exception during file upload: {e}")
-        # The document_processor.py should handle most errors, but this is a fallback
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An internal server error occurred during processing: {str(e)}"
         )
 
 # ----------------------------------------------------
-# 1B. Link Documents by ID (Your original function, renamed and kept for flexibility)
+# 1B. Link Documents by ID 
 # ----------------------------------------------------
-# NOTE: This endpoint now shares the same path as the file upload, which is 
-# generally okay for FastAPI when accepting different content types, but I 
-# recommend using a specific path like /documents/link to avoid ambiguity.
-# Keeping the logic separate from the file upload for clarity.
+
 @router.post("/documents/link", status_code=status.HTTP_201_CREATED, tags=["Documents"])
 def link_docs_to_conversation(
     document_ids: List[str],
@@ -102,7 +84,6 @@ def link_docs_to_conversation(
     db: Session = Depends(get_db)
 ):
     if conversation_id:
-        # Attach to existing conversation
         conversation = conversation_service.get_conversation_detail(db, conversation_id)
         if not conversation or conversation.user_id != user_id:
             raise HTTPException(404, "Conversation not found or unauthorized access.")
@@ -116,9 +97,7 @@ def link_docs_to_conversation(
         return {"message": "Documents linked successfully", "document_ids": document_ids}
 
     else:
-        # Store temporarily for future conversation
-        # This logic is redundant now that the upload endpoint does it, 
-        # but kept here if a user manually provides IDs.
+       
         if user_id not in pending_documents_store:
             pending_documents_store[user_id] = []
 
@@ -132,7 +111,7 @@ def link_docs_to_conversation(
         }
 
 # ----------------------------------------------------
-# 2. Start New Conversation (GPT-style)
+# 2. Start New Conversation 
 # ----------------------------------------------------
 @router.post(
     "/",
@@ -144,14 +123,11 @@ async def start_new_conversation(
     user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db)
 ):
-    """
-    Creates a new conversation, links documents (including pending uploads),
-    waits briefly for any processing documents to be READY, and generates the assistant reply.
-    """
+   
     if not payload.first_message or payload.first_message.strip() == "":
         raise HTTPException(status_code=400, detail="First message cannot be empty.")
 
-    # 1️⃣ Create the conversation
+    # 1️ Create the conversation
     conversation, _ = conversation_service.create_initial_conversation(
         db=db,
         user_id=user_id,
@@ -160,7 +136,7 @@ async def start_new_conversation(
         document_ids=None  # link manually below
     )
 
-    # 2️⃣ Collect all documents to link
+    # 2️ Collect all documents to link
     all_doc_ids = []
 
     # 2a. Documents provided in payload
@@ -199,7 +175,7 @@ async def start_new_conversation(
             (doc_id, ts) for doc_id, ts in pending_docs if ts < cutoff
         ]
 
-    # 3️⃣ Link all READY documents to conversation
+    # 3️ Link all READY documents to conversation
     if all_doc_ids:
         rag_service.link_documents_to_conversation(
             db=db,
@@ -209,10 +185,10 @@ async def start_new_conversation(
 
     db.commit()  # save all document links
 
-    # 4️⃣ Fetch linked documents for RAG
+    # 4️ Fetch linked documents for RAG
     linked_docs = rag_service.get_documents_for_conversation(db, conversation.conversation_id)
 
-    # 5️⃣ Generate assistant reply (pass documents if RAG_CHAT)
+    # 5️ Generate assistant reply (pass documents if RAG_CHAT)
     # Note: Service handles RAG context retrieval internally based on conversation mode
     assistant_message = await conversation_service.process_user_message_and_get_reply(
         db=db,
@@ -220,7 +196,7 @@ async def start_new_conversation(
         user_message_content=payload.first_message
     )
 
-    # 6️⃣ Fetch final conversation
+    # 6️ Fetch final conversation
     final_conversation = conversation_service.get_conversation_detail(
         db, conversation.conversation_id
     )
@@ -307,5 +283,6 @@ async def continue_conversation(
         conversation_id=conversation_id,
         user_message_content=payload.user_message
     )
+
 
     return assistant_reply  # <-- ORM Message mapped via Pydantic model
