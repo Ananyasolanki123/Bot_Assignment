@@ -2,8 +2,6 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime
 
-# Import Enums from the models file to ensure type consistency across layers
-# Adjusting the import path to match your structure:
 from src.Db.models import MessageRole, ConversationMode 
 
 # ---------------------------------------------
@@ -73,4 +71,5 @@ class ConversationResponse(BaseModel):
     messages: List[MessageResponse] = [] 
     
     class Config:
+
         from_attributes = True
