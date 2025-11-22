@@ -1,4 +1,3 @@
-# src/main.py
 
 from fastapi import FastAPI
 # Import the router you just finalized
@@ -16,10 +15,3 @@ app = FastAPI(
 # Include the router under the API version prefix
 app.include_router(conversation_router, prefix="/api/v1")
 
-# Optional: You can run table creation here for development ease.
-# Since your tables are already created, you can leave this commented out.
-# @app.on_event("startup")
-# def startup_event():
-#     print("Database tables check...")
-#     # create_db_tables() 
-#     pass
