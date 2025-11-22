@@ -5,8 +5,6 @@ from typing import List, Optional, Tuple, Dict, Any
 import logging
 from fastapi import HTTPException # Needed for error propagation
 
-# --- CORRECTED IMPORTS ---
-# Assuming Db/models is the correct path for your ORM classes
 from src.Db.models import User, Conversation, Message, MessageRole, ConversationMode 
 from src.Services.rag_service import create_document_and_link
 from src.Db.models import ConvDocumentLink, Document, DocumentChunk
@@ -16,18 +14,14 @@ from src.Services.rag_service import get_documents_for_conversation
 from src.Services.rag_service import link_documents_to_conversation, retrieve_context_for_query
 logger = logging.getLogger(__name__)
 
-### --- Helper Function for Message Creation (Retained) --- ###
 
 def _get_next_sequence_number(db: Session, conversation_id: str) -> int:
-    """Finds the next sequence number for a new message in a conversation."""
     max_seq = db.query(Message.sequence_number).filter(
         Message.conversation_id == conversation_id
     ).order_by(Message.sequence_number.desc()).first()
     
-    # If max_seq exists, get the integer value from the tuple, otherwise 0.
     return (max_seq[0] + 1) if max_seq else 1
 
-### --- CRUD Functions --- ###
 
 def create_initial_conversation(
     db: Session, 
@@ -36,10 +30,7 @@ def create_initial_conversation(
     mode: str,
     document_ids: List[str] = None # CORRECTED: Added document_ids parameter
 ) -> Tuple[Optional[Conversation], Optional[Message]]:
-    """
-    Creates a new conversation and registers the user's first message, 
-    including document linkage if in RAG mode.
-    """
+ 
     # 1. Ensure User Exists (Simplified)
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
@@ -64,8 +55,7 @@ def create_initial_conversation(
             conversation_id=new_conversation.conversation_id, 
             document_ids=document_ids
         )
-        # Note: commit() happens in the linkage function for atomicity, but 
-        # we still commit the conversation and message below.
+       
 
     # 4. Create User's First Message (Sequence 1)
     user_message = Message(
@@ -83,7 +73,6 @@ def create_initial_conversation(
     return new_conversation,user_message
 
 def get_conversations_list(db: Session, user_id: str) -> List[Conversation]:
-    """Retrieves a list of all conversations for a specific user."""
     conversations = db.query(Conversation).filter(
         Conversation.user_id == user_id
     ).order_by(Conversation.last_updated_at.desc()).all()
@@ -91,15 +80,12 @@ def get_conversations_list(db: Session, user_id: str) -> List[Conversation]:
     return conversations
 
 def get_conversation_detail(db: Session, conversation_id: str) -> Optional[Conversation]:
-    """Retrieves a full conversation object, including all related messages."""
-    # Use relationship loading for efficient retrieval of messages
     conversation = db.query(Conversation).filter(
         Conversation.conversation_id == conversation_id
     ).first()
     return conversation
 
 def delete_conversation(db: Session, conversation_id: str):
-    """Deletes a conversation and all its associated messages."""
     result = db.query(Conversation).filter(
         Conversation.conversation_id == conversation_id
     ).delete(synchronize_session=False) 
@@ -108,7 +94,6 @@ def delete_conversation(db: Session, conversation_id: str):
     return result > 0
 
 def add_user_message(db: Session, conversation_id: str, content: str) -> Optional[Message]:
-    """Adds a new user message to an existing conversation."""
     
     next_seq = _get_next_sequence_number(db, conversation_id)
     
@@ -125,7 +110,6 @@ def add_user_message(db: Session, conversation_id: str, content: str) -> Optiona
     
     return user_message
 
-# --- FINAL LLM ORCHESTRATION FUNCTION (Replaces the intermediate version) ---
 
 async def process_user_message_and_get_reply(
     db: Session, 
@@ -134,20 +118,15 @@ async def process_user_message_and_get_reply(
     rag_context: Optional[str] = None
 
 ) -> Optional[Message]:
-    """
-    Handles a full conversation turn, including RAG retrieval if needed.
-    """
 
-    # 1. Fetch Conversation
+
     conversation = get_conversation_detail(db, conversation_id)
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found.")
 
-    # 2. Save User Message
     user_message = add_user_message(db, conversation_id, user_message_content)
     db.refresh(conversation)  # ensure new message is in conversation.messages
 
-    # 3. RAG Retrieval: Fetch linked documents and context
     rag_context = None
     linked_docs = []
     if conversation.mode == ConversationMode.RAG_CHAT:
@@ -218,4 +197,5 @@ def add_assistant_message_mock(db: Session, conversation_id: str, content: str) 
     db.commit()
     db.refresh(assistant_message)
     
+
     return assistant_message
