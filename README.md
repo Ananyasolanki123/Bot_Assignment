@@ -1,4 +1,4 @@
-# BOT GPT Backend
+# CHATBOT CRUD
 
 A powerful enterprise conversational assistant built with FastAPI, capable of engaging in open chat and Retrieval-Augmented Generation (RAG) using uploaded PDF documents.
 
