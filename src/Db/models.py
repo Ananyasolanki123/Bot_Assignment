@@ -27,9 +27,9 @@ class ProcessingStatus(enum.Enum):
 
 # --- Core Entities ---
 
-class User(Base):
+class UserofBot(Base):
     """Represents a user of the BOT GPT platform."""
-    __tablename__ = "users"
+    __tablename__ = "userofbot"
     
     # Primary Key
     user_id = Column(String, primary_key=True) # Using String for UUIDs
@@ -44,13 +44,13 @@ class User(Base):
 
 class Conversation(Base):
     """Represents a single, ongoing chat session."""
-    __tablename__ = "conversations"
+    __tablename__ = "conversationsofbot"
     
     # Primary Key
     conversation_id = Column(String, primary_key=True)
     
     # Foreign Key
-    user_id = Column(String, ForeignKey("users.user_id"), index=True, nullable=False)
+    user_id = Column(String, ForeignKey("userofbot.user_id"), index=True, nullable=False)
     
     # Core Data
     title = Column(String, default="New Chat")
@@ -61,7 +61,7 @@ class Conversation(Base):
     last_updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    user = relationship("User", back_populates="conversations")
+    user = relationship("UserofBot", back_populates="conversations")
     
     # Messages in order, crucial for context construction
     messages = relationship("Message", back_populates="conversation", order_by="Message.sequence_number")
@@ -69,13 +69,13 @@ class Conversation(Base):
     # Documents linked to this RAG conversation
     linked_documents = relationship(
         "Document", 
-        secondary="conversation_document_link", 
+        secondary="conversation_document_linkofbot", 
         back_populates="conversations"
     )
 
 class Message(Base):
     """Represents a single turn (user or assistant message) in a conversation."""
-    __tablename__ = "messages"
+    __tablename__ = "messagesofbot"
     
     # Primary Key
     message_id = Column(String, primary_key=True)
@@ -83,7 +83,7 @@ class Message(Base):
     # Foreign Key
     conversation_id = Column(
         String, 
-        ForeignKey("conversations.conversation_id", ondelete="CASCADE"), # <--- THIS IS THE FIX
+        ForeignKey("conversationsofbot.conversation_id", ondelete="CASCADE"),
         index=True, 
         nullable=False
     )    
@@ -102,20 +102,20 @@ class Message(Base):
 # --- RAG Entities ---
 
 class Document(Base):
-    __tablename__ = "documents"
+    __tablename__ = "documentsofbot"
 
     document_id = Column(String, primary_key=True)
-    user_id = Column(String, ForeignKey("users.user_id"), index=True, nullable=False)
+    user_id = Column(String, ForeignKey("userofbot.user_id"), index=True, nullable=False)
     filename = Column(String, nullable=False)
     storage_path = Column(String, nullable=False)
     processing_status = Column(Enum(ProcessingStatus), default=ProcessingStatus.PENDING, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships
-    user = relationship("User", back_populates="uploaded_documents")
+    user = relationship("UserofBot", back_populates="uploaded_documents")
     conversations = relationship(
         "Conversation",
-        secondary="conversation_document_link",
+        secondary="conversation_document_linkofbot",
         back_populates="linked_documents"
     )
 
@@ -127,20 +127,20 @@ class Document(Base):
     )
 
 class ConvDocumentLink(Base):
-    __tablename__ = "conversation_document_link"
+    __tablename__ = "conversation_document_linkofbot"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    conversation_id = Column(String, ForeignKey("conversations.conversation_id"), index=True, nullable=False)
-    document_id = Column(String, ForeignKey("documents.document_id"), index=True, nullable=False)
+    conversation_id = Column(String, ForeignKey("conversationsofbot.conversation_id"), index=True, nullable=False)
+    document_id = Column(String, ForeignKey("documentsofbot.document_id"), index=True, nullable=False)
 
 
 # ----- DOCUMENT CHUNK -----
 
 class DocumentChunk(Base):
-    __tablename__ = "document_chunks"
+    __tablename__ = "document_chunksofbot"
 
     chunk_id = Column(String, primary_key=True)
-    document_id = Column(String, ForeignKey("documents.document_id"), index=True, nullable=False)
+    document_id = Column(String, ForeignKey("documentsofbot.document_id"), index=True, nullable=False)
 
     content = Column(Text, nullable=False)
     embedding = Column(Text, nullable=False)

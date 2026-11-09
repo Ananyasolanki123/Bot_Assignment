@@ -55,13 +55,21 @@ Install dependencies:
 pip install -r requirement.txt
 ```
 
-Run the application:
+Run the FastAPI backend:
 
 ```bash
 uvicorn src.main:app --reload
 ```
 
 The API will be available at `http://localhost:8000`.
+
+Run the Streamlit frontend UI:
+
+```bash
+streamlit run src/app.py
+```
+
+The Streamlit UI will be available at `http://localhost:8501`.
 
 ### 4. Run with Docker
 

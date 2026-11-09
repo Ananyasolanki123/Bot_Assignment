@@ -7,7 +7,7 @@ import asyncio
 
 
 from src.Db.__init__ import get_db
-from src.Db.models import ConversationMode,MessageRole,ProcessingStatus,User,Conversation,Message,Document,ConvDocumentLink,DocumentChunk
+from src.Db.models import ConversationMode,MessageRole,ProcessingStatus,UserofBot,Conversation,Message,Document,ConvDocumentLink,DocumentChunk
 
 
 
@@ -34,6 +34,9 @@ router = APIRouter(
 # Mock Auth
 def get_current_user_id():
     return "user_mock_id_123"
+
+# In-memory store for documents uploaded before a conversation is started
+pending_documents_store = {}
 
 # ----------------------------------------------------
 # 1A. FILE UPLOAD ENDPOINT 
@@ -193,7 +196,8 @@ async def start_new_conversation(
     assistant_message = await conversation_service.process_user_message_and_get_reply(
         db=db,
         conversation_id=conversation.conversation_id,
-        user_message_content=payload.first_message
+        user_message_content=payload.first_message,
+        save_user_message=False
     )
 
     # 6️ Fetch final conversation

@@ -5,7 +5,7 @@ from typing import List, Optional, Tuple, Dict, Any
 import logging
 from fastapi import HTTPException # Needed for error propagation
 
-from src.Db.models import User, Conversation, Message, MessageRole, ConversationMode 
+from src.Db.models import UserofBot, Conversation, Message, MessageRole, ConversationMode 
 from src.Services.rag_service import create_document_and_link
 from src.Db.models import ConvDocumentLink, Document, DocumentChunk
 
@@ -32,9 +32,9 @@ def create_initial_conversation(
 ) -> Tuple[Optional[Conversation], Optional[Message]]:
  
     # 1. Ensure User Exists (Simplified)
-    user = db.query(User).filter(User.user_id == user_id).first()
+    user = db.query(UserofBot).filter(UserofBot.user_id == user_id).first()
     if not user:
-        user = User(user_id=user_id, email=f"{user_id}@botgpt.com")
+        user = UserofBot(user_id=user_id, email=f"{user_id}@botgpt.com")
         db.add(user)
         db.flush()
         
@@ -115,8 +115,8 @@ async def process_user_message_and_get_reply(
     db: Session, 
     conversation_id: str,
     user_message_content: str,
-    rag_context: Optional[str] = None
-
+    rag_context: Optional[str] = None,
+    save_user_message: bool = True
 ) -> Optional[Message]:
 
 
@@ -124,8 +124,9 @@ async def process_user_message_and_get_reply(
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found.")
 
-    user_message = add_user_message(db, conversation_id, user_message_content)
-    db.refresh(conversation)  # ensure new message is in conversation.messages
+    if save_user_message:
+        user_message = add_user_message(db, conversation_id, user_message_content)
+        db.refresh(conversation)  # ensure new message is in conversation.messages
 
     rag_context = None
     linked_docs = []

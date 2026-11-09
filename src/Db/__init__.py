@@ -13,7 +13,7 @@ DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 DB_HOST = os.getenv("DB_HOST")
 DB_PORT = os.getenv("DB_PORT")
-DB_PASSWORD_ENCODED = quote_plus(DB_PASSWORD) 
+DB_PASSWORD_ENCODED = quote_plus(DB_PASSWORD) if DB_PASSWORD else ""
 # Construct the required SQLAlchemy database URL (using psycopg2 driver)
 SQLALCHEMY_DATABASE_URL = (
     f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD_ENCODED}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
